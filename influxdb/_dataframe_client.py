@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 
 import math
 from collections import defaultdict
+import re
 
 import pandas as pd
 import numpy as np
@@ -30,6 +31,16 @@ def _pandas_time_unit(time_precision):
 
 def _escape_pandas_series(s):
     return s.apply(lambda v: _escape_tag(v))
+
+__TIMESTAMP_FIX_RE = re.compile(r"\d+-\d\d-\d\dT\d\d:\d\d:\d\dZ")
+
+def _fix_timestamp_format(x):
+    """Fixes timestamp without fractions of seconds to have them."""
+    match = re.match(__TIMESTAMP_FIX_RE, x)
+    if match:
+        x = x[:-1] + ".000000Z"
+        return x
+    return x
 
 
 class DataFrameClient(InfluxDBClient):
@@ -219,6 +230,7 @@ class DataFrameClient(InfluxDBClient):
             else:
                 key = (name, tuple(sorted(tags.items())))
             df = pd.DataFrame(data)
+            df.time = df.time.map(_fix_timestamp_format)
             df.time = pd.to_datetime(df.time)
 
             if data_frame_index:
